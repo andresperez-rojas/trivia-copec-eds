@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivia de Seguridad y Cumplimiento Operacional - EDS</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Vue 3 Global Build CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Canvas Confetti CDN para celebraciones -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Marked.js para formatear texto markdown de la IA -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        copecBlue: '#005088',
+                        copecDarkBlue: '#0a2540',
+                        copecYellow: '#f2b705',
+                        copecRed: '#e1251b',
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        .fuel-gauge {
+            transition: stroke-dashoffset 0.5s ease-out;
+        }
+            .corporate-shell {
+            background:
+                radial-gradient(circle at top left, rgba(14, 165, 233, 0.22), transparent 30rem),
+                linear-gradient(135deg, #061525 0%, #0a2540 46%, #07111f 100%);
+        }
+        .copec-card {
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(226, 232, 240, 0.96));
+            color: #0f172a;
+            box-shadow: 0 24px 70px rgba(2, 6, 23, 0.35);
+        }
+        .copec-field {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+        }
+        .copec-field:focus {
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+        }
+        .copec-field-error {
+            border-color: #e1251b;
+            box-shadow: 0 0 0 3px rgba(225, 37, 27, 0.12);
+        }
+        .copec-soft-panel {
+            background: rgba(15, 23, 42, 0.06);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+</style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen font-sans flex flex-col justify-between overflow-x-hidden corporate-shell">
+
+    <div id="app" class="flex-grow flex flex-col items-center justify-center p-4 md:p-6 w-full max-w-xl mx-auto">
+        
+        <!-- NOTIFICACIÓN DE TOAST PERSONALIZADO (REEMPLAZO DE ALERT) -->
+        <div v-if="toastMessage" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce transition-all" :class="toastClass">
+            <i class="fa-solid fa-circle-check text-lg"></i>
+            <span>{{ toastMessage }}</span>
+        </div>
+
+        <!-- PANTALLA DE INICIO -->
+        <div v-if="screen === 'intro'" class="w-full copec-card border border-white/70 rounded-2xl md:rounded-3xl p-5 md:p-7 shadow-2xl text-left relative overflow-hidden backdrop-blur-sm">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-copecBlue via-sky-400 to-copecYellow"></div>
+            <div class="absolute inset-x-0 top-2 h-px bg-white/70"></div>
+            
+            <!-- Boton oculto de configuracion de Google Sheets -->
+            <button v-if="adminUnlocked" @click="showSettings = !showSettings" class="absolute top-4 right-4 text-slate-400 hover:text-copecBlue transition-colors text-sm" title="Configuracion del registro">
+                <i class="fa-solid fa-gears"></i>
+            </button>
+
+            <!-- Panel Flotante de Configuracion de Google Sheets -->
+            <div v-if="adminUnlocked && showSettings" class="absolute inset-x-4 md:inset-x-6 top-14 bg-slate-950 border border-slate-700 p-4 rounded-2xl text-left shadow-2xl z-50 animate-fade-in text-xs overflow-y-auto max-h-[470px] custom-scrollbar text-white">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-bold text-copecYellow uppercase tracking-wider"><i class="fa-solid fa-gears mr-1"></i> Configuracion del Sistema</span>
+                    <button @click="showSettings = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block font-bold text-slate-300 mb-1">URL de Google Sheets WebApp:</label>
+                        <input 
+                            type="text" 
+                            v-model="googleSheetUrl" 
+                            placeholder="https://script.google.com/macros/s/.../exec" 
+                            class="w-full p-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-copecYellow"
+                        />
+                        <span class="text-[9px] text-slate-500 block mt-1">No agregues claves API en este HTML publico. La URL de Apps Script recibira los resultados en una fase posterior.</span>
+                    </div>
+                    
+                    <div v-if="googleSheetUrl" class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center space-y-2">
+                        <span class="block text-slate-300 font-bold text-[10px] uppercase text-left"><i class="fa-solid fa-qrcode mr-1 text-copecYellow"></i> QR para distribucion</span>
+                        <p class="text-[9px] text-slate-400 text-left leading-relaxed">
+                            Este enlace comparte la trivia con la URL de registro preconfigurada para los participantes.
+                        </p>
+                        <div class="flex justify-center py-1">
+                            <img :src="generatedQrUrl" alt="QR de la trivia" class="w-32 h-32 bg-white p-1 rounded-lg shadow-lg border border-slate-700" />
+                        </div>
+                        <button @click="copyShareableUrl" class="w-full py-1.5 bg-copecBlue hover:bg-sky-700 text-white rounded-lg font-bold text-[10px] transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-link"></i> Copiar link configurado
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-start gap-4 mt-4 mb-5">
+                <div @click="handleLogoClick" class="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center shadow-lg border border-sky-100 bg-gradient-to-br from-copecBlue to-sky-600 cursor-pointer hover:scale-[1.02] active:scale-95 transition-all flex-shrink-0">
+                    <i class="fa-solid fa-shield-halved text-white text-3xl md:text-4xl"></i>
+                </div>
+                <div class="min-w-0 pr-8">
+                    <p class="text-[10px] md:text-xs font-extrabold text-copecBlue uppercase tracking-[0.18em] mb-1">Seguridad y Cumplimiento Operacional</p>
+                    <h1 class="text-2xl md:text-3xl font-extrabold text-slate-950 leading-tight uppercase tracking-wide">
+                        Trivia EDS COPEC
+                    </h1>
+                    <p class="text-slate-600 font-semibold text-xs md:text-sm mt-1 leading-relaxed">
+                        Evaluacion breve para reforzar criterios preventivos, cumplimiento SEC y buenas practicas en estacion.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="copec-soft-panel rounded-2xl p-4 mb-5">
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="rounded-xl bg-white/70 border border-slate-200 p-2">
+                        <span class="block text-lg font-black text-copecBlue">{{ questions.length }}</span>
+                        <span class="block text-[9px] font-bold text-slate-500 uppercase">Preguntas</span>
+                    </div>
+                    <div class="rounded-xl bg-white/70 border border-slate-200 p-2">
+                        <span class="block text-lg font-black text-sky-600">100%</span>
+                        <span class="block text-[9px] font-bold text-slate-500 uppercase">Registro</span>
+                    </div>
+                    <div class="rounded-xl bg-white/70 border border-slate-200 p-2">
+                        <span class="block text-lg font-black text-copecYellow"><i class="fa-solid fa-bolt"></i></span>
+                        <span class="block text-[9px] font-bold text-slate-500 uppercase">Rapida</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Datos del Participante -->
+            <form @submit.prevent="startTrivia" class="space-y-4 mb-5" novalidate>
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <label class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Nombre completo</label>
+                        <span class="text-[10px] font-bold text-copecRed uppercase">Obligatorio</span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-copecBlue">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input 
+                            type="text" 
+                            v-model.trim="userName" 
+                            @input="clearFieldError('name')"
+                            autocomplete="name"
+                            placeholder="Ej. Juan Perez" 
+                            class="copec-field w-full pl-10 pr-4 py-3 rounded-xl placeholder-slate-400 focus:outline-none transition-colors font-semibold"
+                            :class="{ 'copec-field-error': formErrors.name }"
+                        />
+                    </div>
+                    <p v-if="formErrors.name" class="mt-1 text-[11px] font-semibold text-copecRed">{{ formErrors.name }}</p>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <label class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Correo electronico</label>
+                        <span class="text-[10px] font-bold text-copecRed uppercase">Obligatorio</span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-copecBlue">
+                            <i class="fa-solid fa-envelope"></i>
+                        </span>
+                        <input 
+                            type="email" 
+                            v-model.trim="userEmail" 
+                            @input="clearFieldError('email')"
+                            autocomplete="email"
+                            inputmode="email"
+                            placeholder="nombre@empresa.cl" 
+                            class="copec-field w-full pl-10 pr-4 py-3 rounded-xl placeholder-slate-400 focus:outline-none transition-colors font-semibold lowercase"
+                            :class="{ 'copec-field-error': formErrors.email }"
+                        />
+                    </div>
+                    <p v-if="formErrors.email" class="mt-1 text-[11px] font-semibold text-copecRed">{{ formErrors.email }}</p>
+                    <p v-else class="mt-1 text-[11px] text-slate-500">Se usara para asociar el resultado y preparar el control de una respuesta por participante.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">Estacion / EDS</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sky-600">
+                                <i class="fa-solid fa-location-dot"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                v-model.trim="userStation" 
+                                autocomplete="organization"
+                                placeholder="Ej. EDS 60032" 
+                                class="copec-field w-full pl-10 pr-4 py-3 rounded-xl placeholder-slate-400 focus:outline-none transition-colors font-semibold"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1.5">Cargo</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-sky-600">
+                                <i class="fa-solid fa-id-badge"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                v-model.trim="userRole" 
+                                autocomplete="organization-title"
+                                placeholder="Ej. Operador" 
+                                class="copec-field w-full pl-10 pr-4 py-3 rounded-xl placeholder-slate-400 focus:outline-none transition-colors font-semibold"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="formErrors.general" class="rounded-xl border border-copecRed/30 bg-red-50 px-3 py-2 text-[12px] font-semibold text-copecRed flex items-start gap-2">
+                    <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+                    <span>{{ formErrors.general }}</span>
+                </div>
+
+                <button 
+                    type="submit"
+                    :disabled="!canStartTrivia || isCheckingEmail" 
+                    class="w-full py-4 bg-copecBlue hover:bg-sky-700 text-white font-extrabold text-base md:text-lg rounded-xl shadow-lg shadow-sky-900/20 active:scale-[0.99] transition-all uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                    {{ isCheckingEmail ? 'Validando correo...' : 'Iniciar Desafío' }} <i class="fa-solid" :class="isCheckingEmail ? 'fa-circle-notch fa-spin' : 'fa-arrow-right'"></i>
+                </button>
+            </form>
+
+            <!-- Acceso Secreto al Panel del Organizador -->
+            <button 
+                v-if="adminUnlocked"
+                @click="showAdminPanel = true" 
+                class="w-full py-2.5 mb-4 bg-slate-900 hover:bg-slate-800 text-copecYellow border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+                <i class="fa-solid fa-users-viewfinder"></i> Panel del Organizador
+            </button>
+            
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-5 text-[11px] text-slate-500 font-bold border-t border-slate-200 pt-4 text-center">
+                <span><i class="fa-solid fa-shield-check text-copecBlue mr-1"></i> Participacion registrada</span>
+                <span><i class="fa-solid fa-file-csv text-sky-600 mr-1"></i> Respaldo disponible</span>
+                <span><i class="fa-solid fa-table text-copecYellow mr-1"></i> Registro en linea</span>
+            </div>
+        </div>
+        <!-- PANEL DE ADMINISTRACIÓN (OCULTO A LOS PARTICIPANTES) -->
+        <div v-if="adminUnlocked && showAdminPanel" class="w-full bg-slate-800/95 border border-slate-700 rounded-3xl p-6 shadow-2xl relative flex flex-col backdrop-blur-sm animate-fade-in">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-500 to-copecBlue"></div>
+            
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-users-gear text-copecYellow text-xl"></i>
+                    <h2 class="text-lg font-black text-white uppercase tracking-wider">Panel del Organizador</h2>
+                </div>
+                <button @click="showAdminPanel = false" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                Descarga el reporte manual si no deseas usar la integración de Google Sheets o deseas un respaldo rápido en Excel.
+                <span class="text-emerald-400 font-semibold block mt-1"><i class="fa-solid fa-sheet-plastic"></i> Destino Google Sheets: {{ googleSheetUrl ? 'Configurado' : 'Sin Configurar' }}</span>
+            </p>
+
+            <div class="flex gap-2 mb-4">
+                <button 
+                    @click="downloadCSVReport" 
+                    class="flex-grow py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-extrabold text-xs rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-file-excel text-base"></i> Descargar Reporte (Excel/CSV)
+                </button>
+            </div>
+
+            <!-- TABLA DE PUNTAJES EN VIVO (MOCK / LOCALES DE SESIÓN) -->
+            <div class="bg-slate-900/60 rounded-2xl p-3 border border-slate-800 max-h-[300px] overflow-y-auto custom-scrollbar mb-4">
+                <table class="w-full text-left text-[11px] text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                            <th class="pb-2">Participante</th>
+                            <th class="pb-2 text-center">Puntaje</th>
+                            <th class="pb-2 text-right">Rango</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="getActiveResults().length === 0">
+                            <td colspan="3" class="text-center py-8 text-slate-500 italic">No hay puntajes registrados en esta sesión.</td>
+                        </tr>
+                        <tr v-for="(res, idx) in getActiveResults()" :key="idx" class="border-b border-slate-800/30 hover:bg-slate-800/30">
+                            <td class="py-2 font-bold text-white max-w-[150px] truncate">{{ res.name }}</td>
+                            <td class="py-2 text-center font-mono font-bold font-semibold text-copecYellow">{{ res.score }} / {{ res.total }}</td>
+                            <td class="py-2 text-right text-slate-400 text-[10px]">{{ res.rank }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <button 
+                @click="showAdminPanel = false" 
+                class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-xl active:scale-95 transition-all uppercase tracking-wider"
+            >
+                Cerrar Panel
+            </button>
+        </div>
+
+        <!-- PANTALLA DE JUEGO (PREGUNTAS) -->
+        <div v-if="screen === 'quiz'" class="w-full bg-slate-800/95 border border-slate-700 rounded-3xl p-5 md:p-6 shadow-2xl relative flex flex-col justify-between min-h-[550px] backdrop-blur-sm">
+            
+            <!-- CABECERA DE PROGRESO Y MEDIDOR -->
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-4">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-slate-400 block font-mono">
+                        Jornada de Cumplimiento
+                    </span>
+                    <span class="text-xl font-bold text-white font-mono">{{ currentQuestionIndex + 1 }} <span class="text-slate-500">/ {{ questions.length }}</span></span>
+                </div>
+                
+                <!-- MEDIDOR DE COMBUSTIBLE EN SVG -->
+                <div class="relative flex items-center gap-2">
+                    <div class="text-right">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase block">Tanque</span>
+                        <span class="text-xs font-bold text-copecYellow font-mono">{{ fuelPercentage }}%</span>
+                    </div>
+                    <div class="w-12 h-12 relative flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="24" cy="24" r="20" stroke="#334155" stroke-width="4" fill="transparent" />
+                            <circle cx="24" cy="24" r="20" :stroke="gaugeColor" stroke-width="4" fill="transparent" 
+                                    :stroke-dasharray="125.6" 
+                                    :stroke-dashoffset="125.6 - (125.6 * fuelPercentage) / 100"
+                                    class="fuel-gauge" stroke-linecap="round" />
+                        </svg>
+                        <i class="fa-solid fa-gas-pump absolute text-[14px]" :class="fuelPercentage > 30 ? 'text-white' : 'text-copecRed animate-pulse'"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA DE PREGUNTA -->
+            <div class="flex-grow flex flex-col justify-center">
+                <div class="bg-slate-900/40 border border-slate-700/30 rounded-2xl p-4 mb-5">
+                    <span class="inline-block bg-copecBlue/30 text-sky-400 border border-sky-500/20 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-shield mr-1"></i> Tema {{ currentQuestion.themeId }}: {{ currentQuestion.themeName }}
+                    </span>
+                    <h2 class="text-base md:text-lg font-bold text-white leading-snug">
+                        {{ currentQuestion.question }}
+                    </h2>
+                </div>
+
+                <!-- ALTERNATIVAS -->
+                <div class="space-y-3">
+                    <button 
+                        v-for="(option, index) in currentQuestion.options" 
+                        :key="index"
+                        @click="selectOption(option)"
+                        :disabled="answered"
+                        class="w-full text-left p-3.5 rounded-xl border font-semibold text-sm transition-all flex items-center justify-between"
+                        :class="getOptionClass(option)"
+                    >
+                        <span class="flex items-center gap-3 pr-2">
+                            <span class="w-7 h-7 flex-shrink-0 bg-slate-700 rounded-lg flex items-center justify-center text-xs font-bold border border-slate-600"
+                                  :class="getBadgeClass(option)">
+                                {{ String.fromCharCode(65 + index) }}
+                            </span>
+                            <span class="leading-relaxed text-slate-200">{{ option }}</span>
+                        </span>
+                        
+                        <span class="flex-shrink-0" v-if="answered">
+                            <i v-if="option === currentQuestion.correctAnswer" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+                            <i v-else-if="selectedAnswer === option" class="fa-solid fa-circle-xmark text-copecRed text-lg"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- FEEDBACK DIDÁCTICO -->
+            <div v-if="answered" class="mt-5 p-4 bg-slate-900 border-l-4 rounded-r-xl border-copecYellow animate-fade-in">
+                <p class="text-copecYellow font-bold text-xs uppercase tracking-wider mb-1 font-mono">
+                    <i class="fa-solid fa-lightbulb mr-1"></i> Aprendizaje Clave:
+                </p>
+                <p class="text-slate-300 text-xs leading-relaxed">
+                    {{ currentQuestion.explanation }}
+                </p>
+            </div>
+
+            <!-- CONTROL DE AVANCE -->
+            <div class="mt-6 pt-3 border-t border-slate-700/40 flex justify-end">
+                <button 
+                    v-if="answered"
+                    @click="nextQuestion" 
+                    class="px-6 py-3 bg-gradient-to-r from-copecYellow to-amber-500 hover:from-amber-400 hover:to-amber-600 text-slate-900 font-extrabold text-sm rounded-xl flex items-center gap-2 shadow-lg active:scale-95 transition-all uppercase tracking-wider"
+                >
+                    {{ isLastQuestion ? 'Ver Resultados' : 'Siguiente' }} 
+                    <i class="fa-solid" :class="isLastQuestion ? 'fa-square-poll-vertical' : 'fa-arrow-right'"></i>
+                </button>
+                <div v-else class="text-xs text-slate-500 font-bold self-center">
+                    Selecciona una opción para avanzar
+                </div>
+            </div>
+
+        </div>
+
+        <!-- PANTALLA DE RESULTADOS / CERTIFICADO -->
+        <div v-if="screen === 'result'" class="w-full bg-slate-800/90 border border-slate-700 rounded-3xl p-6 shadow-2xl text-center relative backdrop-blur-sm animate-fade-in">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-copecYellow via-copecRed to-copecBlue"></div>
+            
+            <h2 class="text-2xl font-black text-white uppercase tracking-wider mt-2">¡Evaluación Completada!</h2>
+            <p class="text-copecYellow font-bold text-xs uppercase tracking-widest mb-6 font-mono">Diagnóstico del Concesionario</p>
+
+            <div class="flex justify-center items-center gap-6 mb-6 bg-slate-900/50 p-4 rounded-2xl border border-slate-700/50">
+                <div class="text-left">
+                    <span class="text-xs font-bold text-slate-400 uppercase block">Desempeño</span>
+                    <span class="text-2xl font-black text-white">{{ score }} / {{ questions.length }}</span>
+                    <span class="text-[10px] font-bold text-emerald-400 block mt-1">
+                        <i class="fa-solid fa-circle-check"></i> {{ Math.round((score / questions.length) * 100) }}% de acierto
+                    </span>
+                </div>
+                <div class="w-px h-12 bg-slate-700"></div>
+                <div class="text-left">
+                    <span class="text-xs font-bold text-slate-400 uppercase block">Rango EDS</span>
+                    <span class="text-lg font-extrabold text-copecYellow block leading-tight">{{ getRankName() }}</span>
+                </div>
+            </div>
+
+            <!-- CERTIFICADO DE SEGURIDAD OPERACIONAL -->
+            <div id="diploma" class="relative bg-slate-900 border-2 border-dashed border-copecYellow/50 rounded-2xl p-5 mb-6 text-center shadow-inner overflow-hidden">
+                <div class="absolute top-2 right-2 opacity-10">
+                    <i class="fa-solid fa-award text-8xl text-copecYellow"></i>
+                </div>
+                
+                <span class="text-[10px] font-bold tracking-widest text-copecYellow uppercase block mb-1 font-mono">DIPLOMA DE SEGURIDAD OPERACIONAL</span>
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-4">JORNADA DE CUMPLIMIENTO EDS</span>
+                
+                <p class="text-slate-400 text-xs italic mb-2">Se otorga con orgullo el presente reconocimiento a:</p>
+                <h3 class="text-lg font-black text-white uppercase tracking-wider border-b border-slate-700 pb-2 mb-2 px-4 truncate">
+                    {{ userName }}
+                </h3>
+                <div class="text-[10px] text-slate-400 font-semibold mb-3 space-y-0.5">
+                    <p>{{ userEmail }}</p>
+                    <p v-if="userStation || userRole">{{ userStation || 'EDS no informada' }}<span v-if="userRole"> - {{ userRole }}</span></p>
+                </div>
+                
+                <p class="text-slate-300 text-xs leading-relaxed max-w-sm mx-auto">
+                    Por completar con éxito el diagnóstico preventivo y demostrar excelencia en la gestión de riesgos operativos, normativas SEC, control de calidad y prevención de siniestros.
+                </p>
+                
+                <div class="mt-4 flex justify-between items-end text-[9px] text-slate-400 font-bold pt-2">
+                    <div class="text-left">
+                        <span class="block text-white">EVALUACIÓN:</span>
+                        <span>DS 67 - Cumplimiento Activo</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-slate-500">COD: EDS-{{ Math.floor(Math.random() * 90000) + 10000 }}</span>
+                        <span class="text-copecYellow font-mono">Nivel de Tanque: Seguro</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: DIAGNÓSTICO PREVENTIVO IA -->
+            <div v-if="enableAiFeatures" class="bg-slate-900/80 border border-slate-700 rounded-2xl p-4 mb-6 text-left relative overflow-hidden">
+                <div class="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
+                    <span class="flex h-2 w-2 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-copecYellow opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-copecYellow"></span>
+                    </span>
+                    <h4 class="text-xs font-bold text-copecYellow uppercase tracking-widest flex items-center gap-1.5 font-mono">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Diagnóstico Predictivo IA
+                    </h4>
+                </div>
+
+                <div v-if="isAnalyzing" class="flex flex-col items-center py-4 justify-center gap-2">
+                    <div class="w-6 h-6 border-2 border-copecYellow border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-[11px] font-mono text-slate-400 uppercase">Analizando respuestas operacionales con Gemini...</span>
+                </div>
+
+                <div v-else class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                    <div v-html="aiAnalysisHtml"></div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: MESA DEL ASESOR VIRTUAL IA (CHAT CON GROUNDING) -->
+            <div v-if="enableAiFeatures" class="bg-slate-950 border border-slate-800 rounded-2xl p-4 mb-6 text-left">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-indigo-900/30 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase font-mono">
+                            <i class="fa-solid fa-headset mr-1"></i> Mesa Técnica IA
+                        </div>
+                        <h4 class="text-xs font-black text-white uppercase tracking-wider">Consultas SEC / Prevención</h4>
+                    </div>
+                </div>
+
+                <!-- Historial de Chat -->
+                <div class="space-y-3 max-h-[220px] overflow-y-auto mb-3 pr-1 custom-scrollbar text-xs" ref="chatContainer">
+                    <div v-if="chatResponses.length === 0" class="text-slate-500 text-center py-4 italic">
+                        Pregunta libremente sobre el DS 160, el DS 67, la Res. 11898 o incidentes de tanques.
+                    </div>
+                    
+                    <div v-for="(msg, idx) in chatResponses" :key="idx" class="rounded-xl p-3" :class="msg.role === 'user' ? 'bg-slate-900 border border-slate-800 text-right text-slate-200' : 'bg-slate-800/40 border border-slate-700/50 text-slate-300'">
+                        <div class="font-bold text-[10px] uppercase tracking-wider mb-1 text-slate-400">
+                            {{ msg.role === 'user' ? 'Tú' : 'Asesor Virtual Copec' }}
+                        </div>
+                        <div v-html="msg.text" class="prose prose-invert max-w-none text-xs leading-relaxed"></div>
+                        
+                        <!-- Fuentes citadas por Google Grounding -->
+                        <div v-if="msg.sources && msg.sources.length > 0" class="mt-2 pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex flex-wrap gap-1.5 items-center">
+                            <span class="font-bold uppercase tracking-wider text-[8px]"><i class="fa-solid fa-magnifying-glass text-copecYellow"></i> Fuentes:</span>
+                            <a v-for="(src, sidx) in msg.sources" :key="sidx" :href="src.uri" target="_blank" class="bg-slate-900 hover:bg-slate-850 px-1.5 py-0.5 rounded border border-slate-700 hover:border-copecYellow transition-colors flex items-center gap-1 max-w-[120px] truncate" :title="src.title">
+                                <i class="fa-solid fa-globe text-[9px] text-sky-400"></i> {{ src.title }}
+                            </a>
+                        </div>
+                    </div>
+
+                    <div v-if="isChatting" class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 text-slate-400 flex items-center gap-2">
+                        <div class="w-3 h-3 border-2 border-copecYellow border-t-transparent rounded-full animate-spin"></div>
+                        <span class="font-mono text-[10px] uppercase tracking-wider animate-pulse">Asesor analizando normativa...</span>
+                    </div>
+                </div>
+
+                <!-- Sugerencias de Consultas Rápidas -->
+                <div class="flex flex-wrap gap-1.5 mb-3">
+                    <button @click="askQuickQuestion('¿Cómo evitamos una multa por Obstaculización ante la SEC?')" class="bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-[10px] text-slate-400 font-semibold px-2 py-1 rounded-lg transition-all">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Evitar Multas SEC
+                    </button>
+                    <button @click="askQuickQuestion('¿Cuál fue la causa de la filtración en la EDS 60032?')" class="bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-[10px] text-slate-400 font-semibold px-2 py-1 rounded-lg transition-all">
+                        <i class="fa-solid fa-gas-pump mr-1"></i> Filtración EDS 60032
+                    </button>
+                </div>
+
+                <!-- Input del Chat -->
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        v-model="chatQuery" 
+                        @keyup.enter="sendChatMessage" 
+                        placeholder="Pregunta sobre la Resolución 11898 o el DS 160..." 
+                        class="flex-grow p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-copecYellow"
+                        :disabled="isChatting"
+                    />
+                    <button 
+                        @click="sendChatMessage" 
+                        class="px-4 py-2.5 bg-copecBlue hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center"
+                        :disabled="isChatting || !chatQuery.trim()"
+                    >
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACCIONES DEL USUARIO -->
+            <div class="space-y-3">
+                <button 
+                    @click="shareTrivia" 
+                    class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-copy text-base"></i> Copiar Detalles del Diploma
+                </button>
+                <button 
+                    @click="resetTrivia" 
+                    class="w-full py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm rounded-xl active:scale-95 transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                    <i class="fa-solid fa-rotate-right"></i> Reintentar Trivia
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PIE DE PÁGINA -->
+    <footer class="w-full bg-slate-950 border-t border-slate-800 py-3 text-center text-[10px] text-slate-400 font-semibold mt-auto px-4">
+        <div class="max-w-lg mx-auto flex justify-between items-center">
+            <span><i class="fa-solid fa-shield-halved text-copecYellow mr-1"></i> Prevención de Riesgos EDS</span>
+            <span>v1.0 - Registro Google Sheets</span>
+        </div>
+    </footer>
+
+    <!-- PROGRAMA Y CONTENIDO COMPLETO DE VUE 3 -->
+    <script type="module">
+        const { createApp, ref, computed, watch, nextTick } = Vue;
+
+        const APP_VERSION = 'v1.0 - Registro Google Sheets';
+        const ENABLE_AI_FEATURES = false;
+
+        // URL por defecto del Google Apps Script WebApp. Puedes dejarla vacia
+        // y configurarla desde el panel oculto de administracion.
+        const DEFAULT_GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwLFRVnhAld5e5QCCvKY4Z3_GsZH9IWJPN16m9jdkdm7nU5tCei4ZM47uS10cuKcQICkQ/exec';
+
+        createApp({
+            setup() {
+                const screen = ref('intro');
+                const userName = ref('');
+                const userEmail = ref('');
+                const userStation = ref('');
+                const userRole = ref('');
+                const formErrors = ref({});
+                const isCheckingEmail = ref(false);
+                const submittedEmailKey = 'copec_trivia_submitted_emails';
+                const currentQuestionIndex = ref(0);
+                const selectedAnswer = ref('');
+                const answered = ref(false);
+                const score = ref(0);
+                const audioCtx = ref(null);
+                const toastMessage = ref('');
+                const toastType = ref('success');
+
+                // Configuraciones de APIs
+                const showSettings = ref(false);
+                const customApiKey = ref('');
+                // Dirección URL de Google Sheets WebApp para el registro de datos
+                const googleSheetUrl = ref(DEFAULT_GOOGLE_SHEET_URL);
+
+                // Contador de clicks secretos para el panel de administración
+                const logoClicks = ref(0);
+                const adminUnlocked = ref(false);
+                
+                // Módulos de IA de Gemini y Chat
+                const aiAnalysis = ref('');
+                const isAnalyzing = ref(false);
+                const chatQuery = ref('');
+                const chatResponses = ref([]);
+                const isChatting = ref(false);
+                const chatContainer = ref(null);
+
+                // Organizador y reportes locales
+                const showAdminPanel = ref(false);
+                const localResults = ref([]);
+                const incorrectAnswersList = ref([]);
+                const answersLog = ref([]);
+
+                const getApiKey = () => {
+                    return customApiKey.value.trim() || "";
+                };
+
+                // Comprobar parámetros de la URL para desbloquear administrador de forma remota
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('admin') === 'true') {
+                    adminUnlocked.value = true;
+                }
+
+                // Leer automáticamente el enlace de Google Sheets desde los parámetros URL si viene del QR del presentador
+                const sheetParam = urlParams.get('sheet');
+                if (sheetParam) {
+                    googleSheetUrl.value = decodeURIComponent(sheetParam);
+                    localStorage.setItem('copec_sheets_url', googleSheetUrl.value);
+                }
+
+                // Generar dinámicamente el QR e hipervínculo que inyecta automáticamente la configuración al participante
+                const generatedQrUrl = computed(() => {
+                    if (!googleSheetUrl.value) return '';
+                    const baseUrl = window.location.href.split('?')[0];
+                    const fullUrl = `${baseUrl}?sheet=${encodeURIComponent(googleSheetUrl.value.trim())}`;
+                    return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(fullUrl)}`;
+                });
+
+                const generatedShareableUrl = computed(() => {
+                    if (!googleSheetUrl.value) return '';
+                    const baseUrl = window.location.href.split('?')[0];
+                    return `${baseUrl}?sheet=${encodeURIComponent(googleSheetUrl.value.trim())}`;
+                });
+
+                const copyShareableUrl = () => {
+                    if (!generatedShareableUrl.value) return;
+                    const temp = document.createElement("textarea");
+                    temp.value = generatedShareableUrl.value;
+                    document.body.appendChild(temp);
+                    temp.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast("Link de registro copiado correctamente.");
+                    } catch (err) {
+                        showToast("No se pudo copiar el link. Intenta nuevamente.", "error");
+                    }
+                    document.body.removeChild(temp);
+                };
+
+                const questions = ref([
+                    // TEMA 1: Rol Estratégico del Organismo Administrador en la Gestión Preventiva (ACHS & Siniestralidad)
+                    {
+                        themeId: 1,
+                        themeName: "Gestión Preventiva y Siniestralidad (ACHS)",
+                        question: "Según estadísticas de la ACHS para el periodo 2025-2026, ¿cuál es el cargo que concentra el mayor porcentaje de accidentes en las Estaciones de Servicio?",
+                        options: [
+                            "Atendedor de tienda Pronto",
+                            "Jefe de servicios",
+                            "Atendedor de isla"
+                        ],
+                        correctAnswer: "Atendedor de isla",
+                        explanation: "El cargo de Atendedor de Isla concentra el 65,7% de los accidentes de la operación (182 casos), siendo el rol más expuesto a incidentes dentro de la estación."
+                    },
+                    {
+                        themeId: 1,
+                        themeName: "Gestión Preventiva y Siniestralidad (ACHS)",
+                        question: "En el contexto de la evaluación del DS 67 de 2027, ¿cuál es la tasa máxima total de cotización adicional a la que se expone una EDS por alta siniestralidad?",
+                        options: [
+                            "7.73% sobre la planilla imponible",
+                            "6.80% sobre la planilla imponible",
+                            "3.48% sobre la planilla imponible"
+                        ],
+                        correctAnswer: "7.73% sobre la planilla imponible",
+                        explanation: "La tasa máxima total se compone de la Base Inicial (0.93%) más el Recargo Máximo por Siniestralidad del DS 67 (+6.80%), totalizando un crítico 7.73% que afecta la rentabilidad."
+                    },
+                    
+                    // TEMA 2: Fiscalizaciones y Oficios SEC
+                    {
+                        themeId: 2,
+                        themeName: "Fiscalizaciones y Oficios SEC",
+                        question: "Al recibir una formulación de cargos de la SEC y requerir la presentación de un escrito de 'Descargos', ¿cuál es el plazo legal establecido para responder por la oficina virtual?",
+                        options: [
+                            "5 días hábiles administrativos",
+                            "15 días hábiles administrativos",
+                            "10 días hábiles administrativos"
+                        ],
+                        correctAnswer: "15 días hábiles administrativos",
+                        explanation: "Los descargos ante una formulación de cargos de la SEC deben ingresarse formalmente dentro de un plazo estricto de 15 días hábiles administrativos."
+                    },
+                    {
+                        themeId: 2,
+                        themeName: "Fiscalizaciones y Oficios SEC",
+                        question: "De acuerdo con el protocolo de fiscalización SEC, ¿cuál de los siguientes registros debe estar permanentemente actualizado en la estación para responder oportunamente a la autoridad?",
+                        options: [
+                            "Registros de capacitaciones de atendedores y la designación de Supervisor Entrenado",
+                            "La agenda de turnos semanales de las operadoras del lubricentro",
+                            "El registro de ventas diarias de lubricantes en bidón"
+                        ],
+                        correctAnswer: "Registros de capacitaciones de atendedores y la designación de Supervisor Entrenado",
+                        explanation: "La falta de registros de capacitación vigentes de atendedores o la ausencia de Supervisor Entrenado debidamente acreditado son causas frecuentes de amonestación u oficios instructivos por la SEC."
+                    },
+
+                    // TEMA 3: Calidad de Producto y Cumplimiento de la Res. Exenta N° 11.898
+                    {
+                        themeId: 3,
+                        themeName: "Calidad de Producto y Res. SEC 11.898",
+                        question: "Bajo las exigencias de la Resolución Exenta SEC N° 11.898, ¿cuánto tiempo debe la Estación de Servicio resguardar obligatoriamente las muestras testigo obtenidas durante la descarga?",
+                        options: [
+                            "3 meses",
+                            "6 meses",
+                            "12 meses"
+                        ],
+                        correctAnswer: "6 meses",
+                        explanation: "Las muestras testigo deben ser custodiadas en la estación por un período mínimo de 6 meses para garantizar la trazabilidad y resolver eventuales discrepancias regulatorias."
+                    },
+                    {
+                        themeId: 3,
+                        themeName: "Calidad de Producto y Res. SEC 11.898",
+                        question: "Si el laboratorio notifica un resultado 'Fuera de Especificación', ¿de cuántos días hábiles dispone la EDS para enviar la muestra testigo para su posterior análisis?",
+                        options: [
+                            "3 días hábiles",
+                            "5 días hábiles",
+                            "10 días hábiles"
+                        ],
+                        correctAnswer: "5 días hábiles",
+                        explanation: "El resultado de la muestra testigo debe ser analizado y notificado dentro de los 5 días hábiles siguientes a la comunicación inicial del resultado fuera de especificación."
+                    },
+
+                    // TEMA 4: Cumplimiento Normativo y Gestión de Riesgos
+                    {
+                        themeId: 4,
+                        themeName: "Cumplimiento Normativo y Riesgos (Copec)",
+                        question: "Respecto al control de derrames críticos, ¿cuál es la cantidad mínima de arena fina, limpia y totalmente seca que exige la norma mantener permanentemente en la EDS?",
+                        options: [
+                            "1/2 tambor de 100 litros",
+                            "3/4 de tambor de 227 litros",
+                            "Un balde plástico de 20 litros por isla"
+                        ],
+                        correctAnswer: "3/4 de tambor de 227 litros",
+                        explanation: "La reglamentación de seguridad y el control de hallazgos exigen disponer de un mínimo de 3/4 de tambor de 227 L de arena seca y limpia para contener de forma inmediata cualquier derrame mayor."
+                    },
+                    {
+                        themeId: 4,
+                        themeName: "Cumplimiento Normativo y Riesgos (Copec)",
+                        question: "El Operador de la EDS tiene la responsabilidad de velar por el cumplimiento normativo. ¿Cada cuánto tiempo se debe actualizar obligatoriamente el Manual de Seguridad de Combustibles Líquidos (MSCL)?",
+                        options: [
+                            "Anualmente",
+                            "Cada dos años",
+                            "Cada tres años"
+                        ],
+                        correctAnswer: "Cada tres años",
+                        explanation: "La asesoría preventiva del Experto Profesional en Riesgos y las responsabilidades del operador exigen actualizar el MSCL en un plazo no superior a tres años."
+                    },
+
+                    // TEMA 5: Descarga Segura e Incidentes EDS (Mutual de Seguridad)
+                    {
+                        themeId: 5,
+                        themeName: "Descarga Segura e Incidentes (Mutual)",
+                        question: "Según el análisis de descargas cruzadas de Mutual Asesorías, ¿cuál es la 'Regla de Oro' operacional que debe aplicarse sin dudar ante cualquier anomalía o inconsistencia en la descarga?",
+                        options: [
+                            "Detener, Verificar y Consultar",
+                            "Continuar con precaución y reportar al término de la jornada",
+                            "Aumentar el flujo para vaciar el compartimento rápidamente"
+                        ],
+                        correctAnswer: "Detener, Verificar y Consultar",
+                        explanation: "La confianza no reemplaza la verificación. Ante cualquier señal de alerta o desvío de inventario/documental, la instrucción de la Mutual es tajante: Detener, Verificar y Consultar."
+                    },
+                    {
+                        themeId: 5,
+                        themeName: "Descarga Segura e Incidentes (Mutual)",
+                        question: "¿Qué lección fundamental se extrajo del incidente real en la EDS 60032 relacionado con la filtración histórica de una línea de diésel con 30 años de antigüedad?",
+                        options: [
+                            "Que las diferencias de inventario son señales de alerta tempranas que jamás deben ignorarse",
+                            "Que el diésel se filtra con mayor rapidez si los tanques se limpian mensualmente",
+                            "Que las tuberías plásticas antiguas se regeneran solas mediante presión inversa"
+                        ],
+                        correctAnswer: "Que las diferencias de inventario son señales de alerta tempranas que jamás deben ignorarse",
+                        explanation: "En la EDS 60032, existieron discrepancias de inventario diarias que fueron pasadas por alto. Las diferencias sistemáticas son la alarma principal de fallas de hermeticidad."
+                    }
+                ]);
+
+                const currentQuestion = computed(() => questions.value[currentQuestionIndex.value]);
+                const isLastQuestion = computed(() => currentQuestionIndex.value === questions.value.length - 1);
+                
+                const fuelPercentage = computed(() => {
+                    return Math.round(((currentQuestionIndex.value) / questions.value.length) * 100);
+                });
+
+                const gaugeColor = computed(() => {
+                    if (fuelPercentage.value <= 30) return '#e1251b'; // Rojo
+                    if (fuelPercentage.value <= 70) return '#f2b705'; // Amarillo
+                    return '#10b981'; // Verde esmeralda
+                });
+
+                const aiAnalysisHtml = computed(() => {
+                    return marked.parse(aiAnalysis.value || "*Esperando respuesta del tutor preventivo...*");
+                });
+
+                const loadSettings = () => {
+                    const savedSheetUrl = localStorage.getItem('copec_sheets_url');
+                    if (savedSheetUrl) googleSheetUrl.value = savedSheetUrl;
+                };
+
+                watch(googleSheetUrl, (newVal) => {
+                    localStorage.setItem('copec_sheets_url', newVal);
+                });
+
+                const handleLogoClick = () => {
+                    logoClicks.value++;
+                    if (logoClicks.value >= 5) {
+                        adminUnlocked.value = !adminUnlocked.value;
+                        logoClicks.value = 0;
+                        showToast(adminUnlocked.value ? "Panel del organizador disponible." : "Panel del organizador oculto.");
+                    }
+                };
+
+                const toastClass = computed(() => {
+                    if (toastType.value === 'error') return 'bg-copecRed text-white';
+                    if (toastType.value === 'warning') return 'bg-copecYellow text-slate-950';
+                    return 'bg-emerald-500 text-slate-950';
+                });
+
+                const showToast = (message, type = 'success') => {
+                    toastType.value = type;
+                    toastMessage.value = message;
+                    setTimeout(() => {
+                        toastMessage.value = '';
+                    }, 4500);
+                };
+
+
+                const normalizedEmail = computed(() => userEmail.value.trim().toLowerCase());
+
+                const isValidEmail = (email) => {
+                    const parts = email.split('@');
+                    if (parts.length !== 2) return false;
+                    const [local, domain] = parts;
+                    return Boolean(local && domain && domain.includes('.') && !email.includes(' ') && domain.split('.').pop().length >= 2);
+                };
+
+                const getSubmittedEmails = () => {
+                    try {
+                        return JSON.parse(localStorage.getItem(submittedEmailKey) || '[]');
+                    } catch (error) {
+                        return [];
+                    }
+                };
+
+                const hasSubmittedLocally = (email) => {
+                    return getSubmittedEmails().includes(email);
+                };
+
+                const markEmailAsSubmittedLocally = (email) => {
+                    if (!email) return;
+                    const submitted = new Set(getSubmittedEmails());
+                    submitted.add(email);
+                    localStorage.setItem(submittedEmailKey, JSON.stringify([...submitted]));
+                };
+
+                const validateParticipantForm = () => {
+                    const errors = {};
+                    const cleanName = userName.value.trim();
+                    const email = normalizedEmail.value;
+
+                    if (cleanName.length < 3) {
+                        errors.name = 'Ingresa tu nombre completo.';
+                    }
+                    if (!email) {
+                        errors.email = 'Ingresa tu correo electronico.';
+                    } else if (!isValidEmail(email)) {
+                        errors.email = 'El correo debe tener un formato valido.';
+                    } else if (!googleSheetUrl.value.trim() && hasSubmittedLocally(email)) {
+                        errors.email = 'Este correo ya completo la trivia en este dispositivo.';
+                        errors.general = 'Modo local: este dispositivo ya tiene un intento registrado para este correo.';
+                    }
+
+                    formErrors.value = errors;
+                    return Object.keys(errors).length === 0;
+                };
+
+                const clearFieldError = (field) => {
+                    if (!formErrors.value[field] && !formErrors.value.general) return;
+                    const nextErrors = { ...formErrors.value };
+                    delete nextErrors[field];
+                    delete nextErrors.general;
+                    formErrors.value = nextErrors;
+                };
+
+                const canStartTrivia = computed(() => {
+                    const email = normalizedEmail.value;
+                    const localDuplicateAllowedByRemoteCheck = Boolean(googleSheetUrl.value.trim());
+                    return userName.value.trim().length >= 3 && isValidEmail(email) && (localDuplicateAllowedByRemoteCheck || !hasSubmittedLocally(email));
+                });
+                const initAudio = () => {
+                    if (!audioCtx.value) {
+                        audioCtx.value = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                };
+
+                const playSound = (type) => {
+                    try {
+                        initAudio();
+                        if (!audioCtx.value) return;
+
+                        const osc = audioCtx.value.createOscillator();
+                        const gainNode = audioCtx.value.createGain();
+                        osc.connect(gainNode);
+                        gainNode.connect(audioCtx.value.destination);
+
+                        const now = audioCtx.value.currentTime;
+
+                        if (type === 'correct') {
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(523.25, now);
+                            osc.frequency.setValueAtTime(659.25, now + 0.1);
+                            osc.frequency.setValueAtTime(783.99, now + 0.2);
+                            gainNode.gain.setValueAtTime(0.1, now);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                            osc.start(now);
+                            osc.stop(now + 0.4);
+                        } else if (type === 'incorrect') {
+                            osc.type = 'sawtooth';
+                            osc.frequency.setValueAtTime(150, now);
+                            osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                            gainNode.gain.setValueAtTime(0.15, now);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                            osc.start(now);
+                            osc.stop(now + 0.3);
+                        } else if (type === 'victory') {
+                            const notes = [523.25, 659.25, 783.99, 1046.5];
+                            notes.forEach((freq, idx) => {
+                                const oscNote = audioCtx.value.createOscillator();
+                                const gainNote = audioCtx.value.createGain();
+                                oscNote.connect(gainNote);
+                                gainNote.connect(audioCtx.value.destination);
+                                oscNote.type = 'triangle';
+                                oscNote.frequency.setValueAtTime(freq, now + idx * 0.1);
+                                gainNote.gain.setValueAtTime(0.1, now + idx * 0.1);
+                                gainNote.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+                                oscNote.start(now + idx * 0.1);
+                                oscNote.stop(now + idx * 0.1 + 0.35);
+                            });
+                        }
+                    } catch (e) {
+                        console.log("Audio bloqueado.");
+                    }
+                };
+
+                const callGeminiApi = async (payload, endpoint = "generateContent") => {
+                    const apiKey = getApiKey();
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:${endpoint}?key=${apiKey}`;
+                    
+                    let delay = 1000;
+                    const maxRetries = 4;
+                    
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            const response = await fetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                            
+                            if (response.ok) {
+                                return await response.json();
+                            }
+                            if (response.status === 429 && attempt < maxRetries) {
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                delay *= 2;
+                                continue;
+                            }
+                            throw new Error(`Error API (${response.status})`);
+                        } catch (error) {
+                            if (attempt === maxRetries) throw error;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                        }
+                    }
+                };
+
+
+                const getGoogleSheetUrl = () => googleSheetUrl.value.trim();
+
+                const checkEmailAvailabilityRemote = async (email) => {
+                    const sheetUrl = getGoogleSheetUrl();
+                    if (!sheetUrl) {
+                        showToast("Modo local: tu resultado quedará solo como respaldo en este dispositivo.", "warning");
+                        return { ok: true, mode: 'local' };
+                    }
+
+                    const separator = sheetUrl.includes('?') ? '&' : '?';
+                    const checkUrl = `${sheetUrl}${separator}action=check&email=${encodeURIComponent(email)}`;
+
+                    try {
+                        const response = await fetch(checkUrl, {
+                            method: 'GET',
+                            redirect: 'follow'
+                        });
+                        const result = await response.json();
+
+                        if (result.exists === true) {
+                            return {
+                                ok: false,
+                                reason: 'duplicate',
+                                message: 'Este correo ya registró una participación. Solo se permite un intento por persona.'
+                            };
+                        }
+
+                        if (result.exists === false) {
+                            return { ok: true, mode: 'remote' };
+                        }
+
+                        return {
+                            ok: false,
+                            reason: 'invalid-response',
+                            message: 'No pudimos validar el correo en este momento. Intenta nuevamente.'
+                        };
+                    } catch (error) {
+                        console.error('Error al validar correo en Google Sheets:', error);
+                        return {
+                            ok: false,
+                            reason: 'network-error',
+                            message: 'No pudimos conectar con el registro en línea. Intenta nuevamente o avisa al organizador.'
+                        };
+                    }
+                };
+                const startTrivia = async () => {
+                    initAudio();
+                    userEmail.value = normalizedEmail.value;
+                    if (!validateParticipantForm()) {
+                        showToast("Revisa nombre y correo antes de iniciar.", "warning");
+                        return;
+                    }
+
+                    isCheckingEmail.value = true;
+                    const availability = await checkEmailAvailabilityRemote(normalizedEmail.value);
+                    isCheckingEmail.value = false;
+
+                    if (!availability.ok) {
+                        formErrors.value = {
+                            ...formErrors.value,
+                            email: availability.message
+                        };
+                        showToast(availability.message, availability.reason === 'duplicate' ? 'warning' : 'error');
+                        return;
+                    }
+
+                    currentQuestionIndex.value = 0;
+                    selectedAnswer.value = '';
+                    answered.value = false;
+                    score.value = 0;
+                    incorrectAnswersList.value = [];
+                    answersLog.value = [];
+                    screen.value = 'quiz';
+                };
+                const selectOption = (option) => {
+                    if (answered.value) return;
+                    selectedAnswer.value = option;
+                    answered.value = true;
+
+                    const isCorrect = option === currentQuestion.value.correctAnswer;
+                    const answerRecord = {
+                        questionId: currentQuestionIndex.value + 1,
+                        themeId: currentQuestion.value.themeId,
+                        themeName: currentQuestion.value.themeName,
+                        question: currentQuestion.value.question,
+                        selectedAnswer: option,
+                        correctAnswer: currentQuestion.value.correctAnswer,
+                        isCorrect
+                    };
+                    answersLog.value.push(answerRecord);
+
+                    if (isCorrect) {
+                        score.value++;
+                        playSound('correct');
+                    } else {
+                        playSound('incorrect');
+                        incorrectAnswersList.value.push({
+                            questionId: currentQuestionIndex.value + 1,
+                            themeId: currentQuestion.value.themeId,
+                            themeName: currentQuestion.value.themeName,
+                            question: currentQuestion.value.question,
+                            selectedAnswer: option,
+                            correctAnswer: currentQuestion.value.correctAnswer,
+                            isCorrect: false,
+                            userAnswer: option
+                        });
+                    }
+                };
+                const getOptionClass = (option) => {
+                    if (!answered.value) {
+                        return 'bg-slate-900/50 border-slate-700 hover:border-copecYellow hover:bg-slate-900 cursor-pointer';
+                    }
+                    if (option === currentQuestion.value.correctAnswer) {
+                        return 'bg-emerald-500/10 border-emerald-500 text-emerald-400';
+                    }
+                    if (selectedAnswer.value === option) {
+                        return 'bg-copecRed/10 border-copecRed text-copecRed';
+                    }
+                    return 'bg-slate-900/20 border-slate-800 text-slate-500 opacity-60';
+                };
+
+                const getBadgeClass = (option) => {
+                    if (!answered.value) return 'border-slate-600 bg-slate-700 text-white';
+                    if (option === currentQuestion.value.correctAnswer) return 'bg-emerald-500 border-emerald-400 text-slate-900';
+                    if (selectedAnswer.value === option) return 'bg-copecRed border-red-500 text-white';
+                    return 'bg-slate-800 border-slate-700 text-slate-600';
+                };
+
+                const saveResultToDb = async () => {
+                    const totalQuestions = questions.value.length;
+                    const percentage = Math.round((score.value / totalQuestions) * 100);
+                    const answers = answersLog.value.map(item => ({
+                        questionId: item.questionId,
+                        themeId: item.themeId,
+                        themeName: item.themeName,
+                        question: item.question,
+                        selectedAnswer: item.selectedAnswer,
+                        correctAnswer: item.correctAnswer,
+                        isCorrect: item.isCorrect
+                    }));
+                    const incorrectAnswers = answers.filter(item => !item.isCorrect);
+                    const answersDetail = answers.map(item => `${item.questionId}. [${item.themeName}] ${item.question} | Respuesta: ${item.selectedAnswer} | Correcta: ${item.correctAnswer} | ${item.isCorrect ? 'Correcta' : 'Incorrecta'}`).join(' || ');
+                    const mistakesDetail = incorrectAnswers.length
+                        ? incorrectAnswers.map((item, idx) => `${idx + 1}. [${item.themeName}] ${item.question} | Respondió: ${item.selectedAnswer} | Correcta: ${item.correctAnswer}`).join(' || ')
+                        : 'Sin errores';
+
+                    const resultPayload = {
+                        name: userName.value.trim(),
+                        email: normalizedEmail.value,
+                        station: userStation.value.trim(),
+                        role: userRole.value.trim(),
+                        score: score.value,
+                        total: totalQuestions,
+                        percentage,
+                        rank: getRankName(),
+                        timestamp: new Date().toISOString(),
+                        correct: score.value,
+                        incorrect: totalQuestions - score.value,
+                        answers,
+                        incorrectAnswers
+                    };
+
+                    localResults.value.push({
+                        ...resultPayload,
+                        answersDetail,
+                        mistakesDetail
+                    });
+                    markEmailAsSubmittedLocally(resultPayload.email);
+
+                    if (!getGoogleSheetUrl()) {
+                        showToast("Modo local: tu resultado quedará solo como respaldo en este dispositivo.", "warning");
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(googleSheetUrl.value, {
+                            method: 'POST',
+                            redirect: 'follow',
+                            headers: {
+                                'Content-Type': 'text/plain;charset=utf-8'
+                            },
+                            body: JSON.stringify(resultPayload)
+                        });
+
+                        let result = {};
+                        try {
+                            result = await response.json();
+                        } catch (parseError) {
+                            result = {};
+                        }
+
+                        if (result.status === 'saved') {
+                            showToast("Listo: tus respuestas fueron registradas correctamente.");
+                        } else if (result.status === 'duplicate') {
+                            showToast("Este correo ya registró una participación. No se guardó un nuevo intento.", "warning");
+                        } else if (response.ok) {
+                            showToast("Tus respuestas fueron enviadas correctamente.");
+                        } else {
+                            showToast("No pudimos confirmar el registro en línea. Avisa al organizador.", "error");
+                        }
+                    } catch (err) {
+                        console.error("Error al registrar en Google Sheets:", err);
+                        showToast("No pudimos conectar con el registro en línea. El organizador puede usar el respaldo local.", "error");
+                    }
+                };
+                const generateAIPerformanceAnalysis = async () => {
+                    isAnalyzing.value = true;
+
+                    if (!getApiKey()) {
+                        aiAnalysis.value = "**Diagnostico IA opcional:** el resultado ya fue calculado y registrado localmente. La integracion con IA se puede activar en una etapa posterior sin exponer claves API en este HTML publico.";
+                        isAnalyzing.value = false;
+                        return;
+                    }
+
+                    aiAnalysis.value = "Generando tu Diagnóstico Técnico en Cumplimiento...";
+
+                    const missedDetails = incorrectAnswersList.value.map((item, idx) => {
+                        return `${idx+1}. Pregunta: "${item.question}" | Tu Respuesta errónea: "${item.userAnswer}" | Correcta: "${item.correctAnswer}"`;
+                    }).join("\n");
+
+                    const systemPrompt = "Actúas como el Ingeniero Jefe de Prevención de Riesgos de Copec. Tu rol es auditar de forma empática pero técnicamente impecable basándote en la información de la EDS chilena de 'Información Base.docx'.";
+                    const query = `El operador/concesionario ${userName.value} acaba de completar la Trivia de Seguridad y Cumplimiento de la EDS obteniendo una puntuación de ${score.value} de un total de 10 preguntas.
+                    
+                    ${incorrectAnswersList.value.length > 0 ? `Cometió errores específicos en las siguientes temáticas del diagnóstico:\n${missedDetails}` : '¡Obtuvo un puntaje perfecto sin cometer errores operacionales!'}
+                    
+                    Por favor, genera un informe sumamente directo, breve y conciso:
+                    1. **Diagnóstico Técnico**: Un análisis muy breve (máximo 2 líneas) de sus fortalezas o debilidades operativas reveladas en la evaluación.
+                    2. **Plan de Acción Preventivo**: Brinda un listado con exactamente 3 medidas preventivas inmediatas y realistas para mitigar estos riesgos en la estación (basándote en el documento base, ej. no normalizar desviaciones, respetar los 6 meses de muestras testigo, aplicar la Regla de Oro, mantener la arena seca de 3/4 de tambor de 227 L, etc.).
+                    
+                    Usa formatos de Markdown limpios (negritas, viñetas) y un lenguaje operacional chileno y profesional de Copec. No utilices la palabra 'estanque' ni 'pista'. Utiliza la palabra 'tanque' y 'estación'.`;
+
+                    try {
+                        const payload = {
+                            contents: [{ parts: [{ text: query }] }],
+                            systemInstruction: {
+                                parts: [{ text: systemPrompt }]
+                            }
+                        };
+                        const result = await callGeminiApi(payload);
+                        if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                            aiAnalysis.value = result.candidates[0].content.parts[0].text;
+                        } else {
+                            aiAnalysis.value = "¡Excelente desempeño operativo! Tu compromiso con la prevención y el cumplimiento normativo garantiza un tanque controlado y libre de riesgos operacionales. Sigue aplicando la Regla de Oro: Detener, Verificar y Consultar ante cualquier anomalía en la estación.";
+                        }
+                    } catch (error) {
+                        console.error("Fallo al obtener análisis predictivo de la IA", error);
+                        aiAnalysis.value = "¡Excelente desempeño operativo! Tu compromiso con la prevención y el cumplimiento normativo garantiza un tanque controlado y libre de riesgos operacionales. Sigue aplicando la Regla de Oro: Detener, Verificar y Consultar ante cualquier anomalía en la estación.";
+                    } finally {
+                        isAnalyzing.value = false;
+                    }
+                };
+
+                const nextQuestion = () => {
+                    if (isLastQuestion.value) {
+                        screen.value = 'result';
+                        playSound('victory');
+                        triggerConfetti();
+                        saveResultToDb();
+                        if (ENABLE_AI_FEATURES) generateAIPerformanceAnalysis();
+                    } else {
+                        currentQuestionIndex.value++;
+                        selectedAnswer.value = '';
+                        answered.value = false;
+                    }
+                };
+
+                const getRankName = () => {
+                    const ratio = score.value / questions.value.length;
+                    if (ratio === 1) return "Inspector Jefe SEC";
+                    if (ratio >= 0.8) return "Supervisor Entrenado";
+                    if (ratio >= 0.6) return "Atendedor Cumplidor";
+                    return "Reinducción Necesaria";
+                };
+
+                const getActiveResults = () => {
+                    return localResults.value;
+                };
+
+                const downloadCSVReport = () => {
+                    const resultsToExport = getActiveResults();
+                    if (resultsToExport.length === 0) {
+                        showToast("Aún no hay resultados para descargar.", "warning");
+                        return;
+                    }
+
+                    const csvEscape = (value) => {
+                        const text = String(value ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ');
+                        return `"${text}"`;
+                    };
+
+                    let csvContent = "Fecha,Nombre,Correo,Estacion_EDS,Cargo,Puntaje,Total,Porcentaje,Rango,Correctas,Incorrectas,Detalle_respuestas,Errores_cometidos\n";
+                    resultsToExport.forEach(row => {
+                        const dateStr = new Date(row.timestamp).toLocaleString('es-CL');
+                        const pct = row.percentage ?? Math.round((row.score / row.total) * 100);
+                        csvContent += [
+                            csvEscape(dateStr),
+                            csvEscape(row.name),
+                            csvEscape(row.email),
+                            csvEscape(row.station),
+                            csvEscape(row.role),
+                            row.score,
+                            row.total,
+                            `${pct}%`,
+                            csvEscape(row.rank),
+                            row.correct,
+                            row.incorrect,
+                            csvEscape(row.answersDetail),
+                            csvEscape(row.mistakesDetail)
+                        ].join(',') + "\n";
+                    });
+
+                    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `Reporte_Trivia_EDS_${new Date().toISOString().slice(0,10)}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast("Respaldo CSV descargado correctamente.");
+                };
+                const triggerConfetti = () => {
+                    const duration = 3 * 1000;
+                    const end = Date.now() + duration;
+
+                    (function frame() {
+                        confetti({
+                            particleCount: 3,
+                            angle: 60,
+                            spread: 55,
+                            origin: { x: 0 },
+                            colors: ['#005088', '#f2b705', '#e1251b']
+                        });
+                        confetti({
+                            particleCount: 3,
+                            angle: 120,
+                            spread: 55,
+                            origin: { x: 1 },
+                            colors: ['#005088', '#f2b705', '#e1251b']
+                        });
+
+                        if (Date.now() < end) {
+                            requestAnimationFrame(frame);
+                        }
+                    }());
+                };
+
+                const shareTrivia = () => {
+                    const textToCopy = `Diploma de Seguridad Operacional EDS Copec\nOperador: ${userName.value}\nResultado de Evaluación: ${score.value}/10 (${getRankName()})\n¡Comprometidos con el cumplimiento del DS 160 y la Resolución 11.898!`;
+                    
+                    const tempTextArea = document.createElement("textarea");
+                    tempTextArea.value = textToCopy;
+                    document.body.appendChild(tempTextArea);
+                    tempTextArea.select();
+                    try {
+                        document.execCommand('copy');
+                        showToast("Detalles del resultado copiados.");
+                    } catch (err) {
+                        showToast("No se pudo copiar. Puedes guardar una captura del resultado.", "warning");
+                    }
+                    document.body.removeChild(tempTextArea);
+                };
+
+                const sendChatMessage = async () => {
+                    if (!chatQuery.value.trim() || isChatting.value) return;
+
+                    const userText = chatQuery.value;
+                    chatResponses.value.push({ role: 'user', text: userText });
+                    chatQuery.value = '';
+                    isChatting.value = true;
+
+                    const chatHistory = chatResponses.value.map(msg => ({
+                        role: msg.role === 'user' ? 'user' : 'model',
+                        parts: [{ text: msg.text }]
+                    }));
+
+                    const systemInstruction = `Actúas como un Asesor Técnico de Prevención de Riesgos de Copec y un especialista en normativas chilenas de combustibles líquidos (especialmente el DS 160 de la SEC, el DS 67 del Ministerio del Trabajo, y la Resolución Exenta 11.898).
+                    Tu deber es responder las preguntas operativas del personal de la EDS Copec de forma seria, fundamentada y muy clara.
+                    Utiliza la información del documento "Información Base.docx" como pilar primordial, y expande de forma rigurosa utilizando tus capacidades de Google Search si el usuario consulta normativas externas de la SEC de Chile o la ACHS.
+                    Escribe siempre en español de Chile e instruye de forma didáctica. Limita las respuestas a un máximo de dos párrafos concisos y utiliza Markdown para dar formato.
+                    Recuerda: NO utilices las palabras 'pista' ni 'estanque'. Reemplázalas respectivamente por 'estación' y 'tanque'.`;
+
+                    try {
+                        const payload = {
+                            contents: chatHistory,
+                            tools: [{ "google_search": {} }],
+                            systemInstruction: {
+                                parts: [{ text: systemInstruction }]
+                            }
+                        };
+
+                        const result = await callGeminiApi(payload);
+                        const modelPart = result?.candidates?.[0]?.content?.parts?.[0];
+                        
+                        if (modelPart && modelPart.text) {
+                            let sources = [];
+                            const groundingMetadata = result.candidates[0].groundingMetadata;
+                            if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                                sources = groundingMetadata.groundingAttributions
+                                    .map(attr => ({
+                                        uri: attr.web?.uri,
+                                        title: attr.web?.title,
+                                    }))
+                                    .filter(src => src.uri && src.title);
+                            }
+
+                            chatResponses.value.push({
+                                role: 'model',
+                                text: marked.parse(modelPart.text),
+                                sources: sources
+                            });
+                        } else {
+                            throw new Error("Sin contenido");
+                        }
+                    } catch (error) {
+                        console.error("Fallo al contactar el Asesor Virtual IA:", error);
+                        chatResponses.value.push({
+                            role: 'model',
+                            text: marked.parse("Estimado operador, en este momento el Asesor Virtual se encuentra fuera de servicio. Recuerde aplicar siempre la **Regla de Oro**: ante cualquier duda, detenga la descarga en la estación y consulte con su prevencionista de riesgos.")
+                        });
+                    } finally {
+                        isChatting.value = false;
+                    }
+                };
+
+                const askQuickQuestion = (questionText) => {
+                    chatQuery.value = questionText;
+                    sendChatMessage();
+                };
+
+                const resetTrivia = () => {
+                    screen.value = 'intro';
+                    userName.value = '';
+                    userEmail.value = '';
+                    userStation.value = '';
+                    userRole.value = '';
+                    formErrors.value = {};
+                    isCheckingEmail.value = false;
+                    currentQuestionIndex.value = 0;
+                    selectedAnswer.value = '';
+                    answered.value = false;
+                    score.value = 0;
+                    aiAnalysis.value = '';
+                    chatResponses.value = [];
+                    incorrectAnswersList.value = [];
+                    answersLog.value = [];
+                    showSettings.value = false;
+                };
+
+                loadSettings();
+
+                return {
+                    screen,
+                    userName,
+                    userEmail,
+                    userStation,
+                    userRole,
+                    formErrors,
+                    isCheckingEmail,
+                    canStartTrivia,
+                    clearFieldError,
+                    questions,
+                    currentQuestionIndex,
+                    currentQuestion,
+                    isLastQuestion,
+                    selectedAnswer,
+                    answered,
+                    score,
+                    fuelPercentage,
+                    gaugeColor,
+                    startTrivia,
+                    selectOption,
+                    getOptionClass,
+                    getBadgeClass,
+                    nextQuestion,
+                    getRankName,
+                    resetTrivia,
+                    shareTrivia,
+                    toastMessage,
+                    toastClass,
+                    appVersion: APP_VERSION,
+                    enableAiFeatures: ENABLE_AI_FEATURES,
+                    
+                    // Secret triggers
+                    handleLogoClick,
+                    adminUnlocked,
+
+                    // IA Configs & States
+                    showSettings,
+                    googleSheetUrl,
+                    generatedQrUrl,
+                    generatedShareableUrl,
+                    copyShareableUrl,
+                    
+                    // IA Módulos de Resultados
+                    aiAnalysisHtml,
+                    isAnalyzing,
+                    chatQuery,
+                    chatResponses,
+                    isChatting,
+                    chatContainer,
+                    sendChatMessage,
+                    askQuickQuestion,
+
+                    // Organizador
+                    showAdminPanel,
+                    getActiveResults,
+                    downloadCSVReport
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
